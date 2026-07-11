@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    body { background: #f8fafc; }
+    .panel { max-width: 560px; margin: 2rem auto; padding: 1.5rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: white; }
+    .panel input, .panel select, .panel textarea { width: 100%; padding: .5rem; margin-bottom: .75rem; border: 1px solid #cbd5e1; border-radius: .4rem; }
+    .panel button { background: var(--color-primario); color: white; border: none; padding: .6rem 1rem; border-radius: .4rem; cursor: pointer; }
+    .panel button:disabled { opacity: .6; cursor: not-allowed; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .admin-nav {
+      display: flex; align-items: center; gap: .5rem; padding: .75rem 1.5rem;
+      background: white; border-bottom: 1px solid #e5e7eb;
+    }
+    .admin-nav .spacer { flex: 1; }
+    .admin-nav button {
+      background: none; border: 1px solid var(--color-primario); color: var(--color-primario);
+      padding: .4rem .8rem; border-radius: .4rem; cursor: pointer; font-size: .85rem;
+    }
+    .admin-nav button.logout { border-color: #dc2626; color: #dc2626; }
+
+    .accion-btn {
+      display: block; width: 100%; margin-bottom: .75rem; text-align: left;
+      background: white; border: 1px solid #e5e7eb; color: #1f2937;
+      padding: 1rem; border-radius: .6rem; font-size: 1rem; cursor: pointer;
+    }
+    .accion-btn:hover { border-color: var(--color-primario); }
+    .accion-btn .desc { display: block; font-size: .8rem; color: #64748b; font-weight: normal; margin-top: .2rem; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: white; border: 1px solid #e5e7eb; border-radius: .6rem; padding: 1rem; text-align: center; }
+    .stat-card .num { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); }
+    .stat-card .label { font-size: .8rem; color: #64748b; }
+    .stat-card.no-disponible .num { color: #dc2626; }
+
+    .producto-row {
+      display: flex; align-items: center; gap: .75rem; background: white;
+      border: 1px solid #e5e7eb; border-radius: .5rem; padding: .6rem .8rem; margin-bottom: .5rem;
+    }
+    .producto-row img { width: 48px; height: 48px; object-fit: cover; border-radius: .4rem; }
+    .producto-row .info { flex: 1; min-width: 0; }
+    .producto-row .info .nombre { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .producto-row .info .meta { font-size: .8rem; color: #64748b; }
+    .badge { font-size: .7rem; padding: .15rem .5rem; border-radius: 999px; font-weight: 600; }
+    .badge.si { background: #dcfce7; color: #15803d; }
+    .badge.no { background: #fee2e2; color: #b91c1c; }
+    .producto-row .acciones { display: flex; gap: .4rem; }
+    .producto-row .acciones button {
+      font-size: .8rem; padding: .35rem .6rem; border-radius: .4rem; border: 1px solid #cbd5e1;
+      background: white; cursor: pointer; color: #1f2937; font-weight: 600;
+    }
+    .producto-row .acciones button.btn-editar { border-color: var(--color-primario); color: var(--color-primario); }
+    .producto-row .acciones button.btn-editar:hover { background: var(--color-primario); color: white; }
+    .producto-row .acciones button.btn-ocultar { border-color: #dc2626; color: #dc2626; }
+    .producto-row .acciones button.btn-ocultar:hover { background: #dc2626; color: white; }
+    .producto-row .acciones button.btn-mostrar { border-color: #16a34a; color: #16a34a; }
+    .producto-row .acciones button.btn-mostrar:hover { background: #16a34a; color: white; }
+    .filtro-lista { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .filtro-lista button { flex: 1; padding: .4rem; border-radius: .4rem; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: .85rem; }
+    .filtro-lista button.active { background: var(--color-primario); color: white; border-color: var(--color-primario); }
+
+    .dropzone {
+      border: 2px dashed #cbd5e1; border-radius: .6rem; padding: 1.5rem; text-align: center;
+      color: #64748b; font-size: .9rem; cursor: pointer; margin-bottom: .75rem; position: relative;
+      transition: border-color .15s, background .15s;
+    }
+    .dropzone.dragover { border-color: var(--color-primario); background: #f0fdfa; color: var(--color-primario); }
+    .dropzone.has-image { padding: 0; border-style: solid; }
+    .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .dropzone-preview { max-width: 100%; max-height: 220px; display: block; margin: 0 auto; border-radius: .5rem; }
+    .dropzone-remove {
+      display: inline-block; margin-top: .5rem; background: none; color: #dc2626;
+      border: 1px solid #dc2626; padding: .25rem .6rem; border-radius: .4rem; font-size: .8rem; width: auto; cursor: pointer;
+    }
+    .upload-status { font-size: .85rem; margin-bottom: .75rem; min-height: 1.1em; }
+
+    .checkbox-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+    .checkbox-row input { width: auto; margin: 0; }
+
+    .post-save { display: none; gap: .5rem; margin-top: .75rem; }
+    .post-save button { flex: 1; }
+    .post-save .secundario { background: white; color: var(--color-primario); border: 1px solid var(--color-primario); }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login" class="view active">
+    <header>
+      <img data-store="logo" src="" alt="logo" />
+      <div class="store-name" data-store="nombre"></div>
+    </header>
+    <div class="panel">
+      <h3>Acceso administrador</h3>
+      <input id="password" type="password" placeholder="Contraseña" onkeydown="if(event.key==='Enter') login()" />
+      <button onclick="login()">Entrar</button>
+      <p id="loginError" style="color:#dc2626;"></p>
+    </div>
+  </div>
+
+  <!-- NAV (visible en todas las vistas de admin logueado) -->
+  <div id="adminNav" class="admin-nav" style="display:none;">
+    <strong data-store="nombre"></strong>
+    <span class="spacer"></span>
+    <button onclick="showView('home')">🏠 Panel</button>
+    <button class="logout" onclick="logout()">🚪 Cerrar sesión</button>
+  </div>
+
+  <!-- HOME: menú principal -->
+  <div id="home" class="view">
+    <div class="panel">
+      <h3>¿Qué quieres hacer?</h3>
+      <button class="accion-btn" onclick="abrirDashboard()">
+        📊 Dashboard
+        <span class="desc">Totales de productos: cargados, disponibles y no disponibles</span>
+      </button>
+      <button class="accion-btn" onclick="abrirFormulario(null)">
+        ➕ Agregar producto
+        <span class="desc">Sube una imagen, precio y categoría</span>
+      </button>
+      <button class="accion-btn" onclick="abrirListaProductos()">
+        ✏️ Editar productos
+        <span class="desc">Edita datos o cambia si el producto se ve al cliente</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="view">
+    <div class="panel">
+      <h3>Dashboard</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="num" id="statTotal">–</div>
+          <div class="label">Total cargados</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="statDisponibles">–</div>
+          <div class="label">Disponibles</div>
+        </div>
+        <div class="stat-card no-disponible">
+          <div class="num" id="statNoDisponibles">–</div>
+          <div class="label">No disponibles</div>
+        </div>
+      </div>
+
+      <div id="ratePanel" style="display:none; border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+        <h4 style="margin-top:0;">Tasa de cambio (CUP por USD)</h4>
+        <input id="rate" type="number" step="0.01" placeholder="Ej: 320" />
+        <button onclick="guardarTasa()">Actualizar tasa</button>
+        <p id="rateMsg"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA DE PRODUCTOS (editar / mostrar-ocultar) -->
+  <div id="listaProductos" class="view">
+    <div class="panel" style="max-width: 720px;">
+      <h3>Editar productos</h3>
+      <input id="buscarProductoInput" type="text" placeholder="🔎 Buscar por nombre..." oninput="renderLista()" style="margin-bottom: .75rem;" />
+      <div class="filtro-lista">
+        <button class="active" data-filtro="todos" onclick="filtrarLista('todos')">Todos</button>
+        <button data-filtro="disponibles" onclick="filtrarLista('disponibles')">Disponibles</button>
+        <button data-filtro="no-disponibles" onclick="filtrarLista('no-disponibles')">No disponibles</button>
+      </div>
+      <div id="listaContenedor">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- FORMULARIO: agregar o editar -->
+  <div id="formProducto" class="view">
+    <div class="panel">
+      <h3 id="formTitulo">Nuevo producto</h3>
+      <input id="nombre" placeholder="Nombre" />
+      <div style="display:flex; gap:.5rem; margin-bottom:.75rem;">
+        <select id="categoria" style="flex:1; min-width:0; margin-bottom:0;">
+          <option value="" disabled selected>-- Selecciona una categoría --</option>
+        </select>
+        <button type="button" onclick="mostrarNuevaCategoria()" style="flex-shrink:0; white-space:nowrap; background:white; color:var(--color-primario); border:1px solid var(--color-primario);">➕ Nueva</button>
+      </div>
+      <div id="nuevaCategoriaRow" style="display:none; gap:.5rem; margin-bottom:.75rem;">
+        <input id="nuevaCategoriaInput" placeholder="Nombre de la categoría (ej. Alimentos)" style="flex:1; min-width:0; margin-bottom:0;" />
+        <button type="button" onclick="crearCategoria()" style="flex-shrink:0;">Crear</button>
+      </div>
+      <p class="upload-status" id="categoriaMsg"></p>
+      <input id="precio" type="number" step="0.01" placeholder="Precio (USD)" />
+
+      <div id="dropzone" class="dropzone">
+        <div id="dropzoneEmpty">
+          📷 Arrastra una imagen aquí o haz clic para elegirla
+          <input id="fileInput" type="file" accept="image/*" />
+        </div>
+        <div id="dropzonePreviewWrap" style="display:none;">
+          <img id="dropzonePreview" class="dropzone-preview" src="" alt="preview" />
+        </div>
+      </div>
+      <button type="button" id="removeImgBtn" class="dropzone-remove" style="display:none;" onclick="quitarImagen(event)">Quitar imagen</button>
+      <p class="upload-status" id="uploadStatus"></p>
+      <input type="hidden" id="img" value="" />
+
+      <textarea id="descripcion" placeholder="Descripción (opcional)"></textarea>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="disponible" checked />
+        <label for="disponible">Disponible (visible para clientes)</label>
+      </div>
+
+      <button id="guardarBtn" onclick="guardarProducto()">Guardar producto</button>
+      <button type="button" style="background:white; color:#64748b; border:1px solid #cbd5e1; margin-top:.5rem;" onclick="showView('home')">Cancelar</button>
+      <p id="productoMsg"></p>
+
+      <div class="post-save" id="postSaveActions">
+        <button class="secundario" onclick="abrirFormulario(null)">➕ Agregar otro</button>
+        <button onclick="showView('home')">🏠 Volver al panel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/store-app.js"></script>
+  <script>
+    let token = sessionStorage.getItem('adminToken') || '';
+    let config = null;
+    let productosCache = [];  // catálogo completo (admin), incluye no disponibles
+    let currentEditId = null; // null = modo "agregar"
+    let filtroActual = 'todos';
+
+    // ─── Vistas ──────────────────────────────────────────────────────────
+    function showView(id) {
+      document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // ─── Login / sesión ────────────────────────────────────────────────────
+    async function login() {
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/validatePassword', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        document.getElementById('loginError').textContent = 'Contraseña incorrecta';
+        return;
+      }
+      const data = await res.json();
+      token = data.token;
+      sessionStorage.setItem('adminToken', token);
+      entrarAlPanel();
+    }
+
+    function entrarAlPanel() {
+      document.getElementById('adminNav').style.display = 'flex';
+      showView('home');
+    }
+
+    function logout() {
+      sessionStorage.removeItem('adminToken');
+      token = '';
+      document.getElementById('adminNav').style.display = 'none';
+      document.getElementById('password').value = '';
+      showView('login');
+    }
+
+    // ─── Dashboard ──────────────────────────────────────────────────────────
+    async function cargarProductosAdmin() {
+      const res = await fetch('/api/admin/products', { headers: { 'x-admin-token': token } });
+      if (res.status === 401) { logout(); return []; }
+      productosCache = await res.json();
+      return productosCache;
+    }
+
+    async function abrirDashboard() {
+      showView('dashboard');
+      const lista = await cargarProductosAdmin();
+      const disponibles = lista.filter((p) => p.disponible).length;
+      document.getElementById('statTotal').textContent = lista.length;
+      document.getElementById('statDisponibles').textContent = disponibles;
+      document.getElementById('statNoDisponibles').textContent = lista.length - disponibles;
+      if (config?.mostrarTasaCambio) document.getElementById('ratePanel').style.display = 'block';
+    }
+
+    async function guardarTasa() {
+      const rate = parseFloat(document.getElementById('rate').value);
+      const res = await fetch('/api/admin/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ rate }),
+      });
+      document.getElementById('rateMsg').textContent = res.ok ? 'Tasa actualizada ✅' : 'Error al actualizar';
+    }
+
+    // ─── Lista de productos (editar / mostrar-ocultar) ───────────────────────
+    async function abrirListaProductos() {
+      showView('listaProductos');
+      document.getElementById('buscarProductoInput').value = '';
+      await cargarProductosAdmin();
+      renderLista();
+    }
+
+    function filtrarLista(filtro) {
+      filtroActual = filtro;
+      document.querySelectorAll('.filtro-lista button').forEach((b) => b.classList.remove('active'));
+      document.querySelector(`.filtro-lista button[data-filtro="${filtro}"]`).classList.add('active');
+      renderLista();
+    }
+
+    function renderLista() {
+      let lista = [...productosCache].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      if (filtroActual === 'disponibles') lista = lista.filter((p) => p.disponible);
+      if (filtroActual === 'no-disponibles') lista = lista.filter((p) => !p.disponible);
+
+      const busqueda = document.getElementById('buscarProductoInput').value.trim().toLowerCase();
+      if (busqueda) lista = lista.filter((p) => p.nombre.toLowerCase().includes(busqueda));
+
+      const contenedor = document.getElementById('listaContenedor');
+      if (!lista.length) { contenedor.innerHTML = '<p>No hay productos que coincidan.</p>'; return; }
+
+      contenedor.innerHTML = lista.map((p) => `
+        <div class="producto-row">
+          <img src="${p.img}" alt="${p.nombre}" />
+          <div class="info">
+            <div class="nombre">${p.nombre}</div>
+            <div class="meta">$${StoreApp.formatMoney(p.precio_usd)} · ${p.categoria}
+              <span class="badge ${p.disponible ? 'si' : 'no'}">${p.disponible ? 'Disponible' : 'No disponible'}</span>
+            </div>
+          </div>
+          <div class="acciones">
+            <button class="btn-editar" onclick="abrirFormulario(${p.id})">Editar</button>
+            <button class="${p.disponible ? 'btn-ocultar' : 'btn-mostrar'}" onclick="toggleDisponible(${p.id}, ${!p.disponible})">${p.disponible ? 'Ocultar' : 'Mostrar'}</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function toggleDisponible(id, nuevoValor) {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ disponible: nuevoValor }),
+      });
+      if (res.ok) {
+        await cargarProductosAdmin();
+        renderLista();
+      }
+    }
+
+    // ─── Formulario: agregar / editar ────────────────────────────────────────
+    function abrirFormulario(id) {
+      currentEditId = id;
+      document.getElementById('postSaveActions').style.display = 'none';
+      document.getElementById('productoMsg').textContent = '';
+      quitarImagen();
+
+      if (id === null) {
+        document.getElementById('formTitulo').textContent = 'Nuevo producto';
+        document.getElementById('nombre').value = '';
+        document.getElementById('precio').value = '';
+        document.getElementById('descripcion').value = '';
+        document.getElementById('categoria').value = '';
+        document.getElementById('disponible').checked = true;
+      } else {
+        const p = productosCache.find((x) => x.id === id);
+        if (!p) return;
+        document.getElementById('formTitulo').textContent = `Editando: ${p.nombre}`;
+        document.getElementById('nombre').value = p.nombre;
+        document.getElementById('precio').value = p.precio_usd;
+        document.getElementById('descripcion').value = p.descripcion || '';
+        document.getElementById('categoria').value = p.categoria;
+        document.getElementById('disponible').checked = !!p.disponible;
+        if (p.img) {
+          document.getElementById('img').value = p.img;
+          document.getElementById('dropzonePreview').src = p.img;
+          document.getElementById('dropzoneEmpty').style.display = 'none';
+          document.getElementById('dropzonePreviewWrap').style.display = 'block';
+          document.getElementById('removeImgBtn').style.display = 'inline-block';
+          document.getElementById('dropzone').classList.add('has-image');
+        }
+      }
+      showView('formProducto');
+    }
+
+    async function guardarProducto() {
+      if (!document.getElementById('img').value) {
+        document.getElementById('productoMsg').textContent = 'Sube una imagen antes de guardar ⚠️';
+        return;
+      }
+      if (!document.getElementById('categoria').value) {
+        document.getElementById('productoMsg').textContent = 'Selecciona una categoría antes de guardar ⚠️';
+        return;
+      }
+      const body = {
+        nombre: document.getElementById('nombre').value,
+        categoria: document.getElementById('categoria').value,
+        precio: parseFloat(document.getElementById('precio').value),
+        img: document.getElementById('img').value,
+        descripcion: document.getElementById('descripcion').value,
+        disponible: document.getElementById('disponible').checked,
+      };
+
+      const esEdicion = currentEditId !== null;
+      const url = esEdicion ? `/api/admin/products/${currentEditId}` : '/api/admin/products';
+      const method = esEdicion ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      document.getElementById('productoMsg').textContent = res.ok
+        ? (esEdicion ? 'Producto actualizado ✅' : 'Producto guardado ✅')
+        : `Error al guardar: ${data.error || res.status}`;
+
+      if (res.ok) {
+        document.getElementById('postSaveActions').style.display = 'flex';
+      }
+    }
+
+    // ─── Drag & drop de imagen ────────────────────────────────────────────
+    const MAX_IMAGE_MB = 5;
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const guardarBtn = document.getElementById('guardarBtn');
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function subirImagen(file) {
+      if (!file.type.startsWith('image/')) {
+        uploadStatus.textContent = 'Ese archivo no es una imagen ⚠️';
+        uploadStatus.style.color = '#dc2626';
+        return;
+      }
+      if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+        uploadStatus.textContent = `La imagen supera ${MAX_IMAGE_MB}MB ⚠️`;
+        uploadStatus.style.color = '#dc2626';
+        return;
+      }
+
+      guardarBtn.disabled = true;
+      uploadStatus.style.color = '#64748b';
+      uploadStatus.textContent = 'Subiendo imagen...';
+
+      try {
+        const imageBase64 = await fileToBase64(file);
+        const res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+          body: JSON.stringify({ imageBase64, filename: file.name, mimeType: file.type }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al subir la imagen');
+
+        document.getElementById('img').value = data.url;
+        document.getElementById('dropzonePreview').src = data.url;
+        document.getElementById('dropzoneEmpty').style.display = 'none';
+        document.getElementById('dropzonePreviewWrap').style.display = 'block';
+        document.getElementById('removeImgBtn').style.display = 'inline-block';
+        dropzone.classList.add('has-image');
+        uploadStatus.style.color = '#16a34a';
+        uploadStatus.textContent = 'Imagen lista ✅';
+      } catch (err) {
+        uploadStatus.style.color = '#dc2626';
+        uploadStatus.textContent = err.message;
+      } finally {
+        guardarBtn.disabled = false;
+      }
+    }
+
+    function quitarImagen(e) {
+      if (e) e.stopPropagation();
+      document.getElementById('img').value = '';
+      document.getElementById('dropzonePreview').src = '';
+      fileInput.value = '';
+      document.getElementById('dropzoneEmpty').style.display = 'block';
+      document.getElementById('dropzonePreviewWrap').style.display = 'none';
+      document.getElementById('removeImgBtn').style.display = 'none';
+      dropzone.classList.remove('has-image');
+      uploadStatus.textContent = '';
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) subirImagen(e.target.files[0]);
+    });
+    ['dragenter', 'dragover'].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); })
+    );
+    ['dragleave', 'drop'].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); })
+    );
+    dropzone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) subirImagen(file);
+    });
+
+    // ─── Crear categoría nueva (el admin no depende del .env) ────────────
+    function mostrarNuevaCategoria() {
+      const row = document.getElementById('nuevaCategoriaRow');
+      row.style.display = 'flex';
+      document.getElementById('nuevaCategoriaInput').focus();
+    }
+
+    async function crearCategoria() {
+      const input = document.getElementById('nuevaCategoriaInput');
+      const nombre = input.value.trim();
+      const msg = document.getElementById('categoriaMsg');
+      if (!nombre) return;
+
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ nombre }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        msg.style.color = '#dc2626';
+        msg.textContent = data.error || 'No se pudo crear la categoría';
+        return;
+      }
+
+      config.categorias.push(data);
+      config.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+      const select = document.getElementById('categoria');
+      const opt = document.createElement('option');
+      opt.value = data.id; opt.textContent = data.nombre;
+      select.appendChild(opt);
+      select.value = data.id;
+
+      input.value = '';
+      document.getElementById('nuevaCategoriaRow').style.display = 'none';
+      msg.style.color = '#16a34a';
+      msg.textContent = `Categoría "${data.nombre}" creada ✅`;
+    }
+
+    // ─── Arranque ────────────────────────────────────────────────────────
+    (async function start() {
+      config = await StoreApp.initStore();
+      const select = document.getElementById('categoria');
+      config.categorias.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.nombre;
+        select.appendChild(opt);
+      });
+
+      if (token) entrarAlPanel();
+    })();
+  </script>
+</body>
+</html>

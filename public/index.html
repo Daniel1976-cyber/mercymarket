@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tienda</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <img data-store="logo" class="logo-round" src="" alt="logo" />
+    <div>
+      <div class="store-name" data-store="nombre"></div>
+      <div class="slogan" data-store="slogan"></div>
+    </div>
+    <span id="exchangeRateDisplay" class="exchange-rate">Tasa: --</span>
+  </header>
+
+  <form class="search-panel" onsubmit="event.preventDefault(); StoreApp.submitSearch();">
+    <div class="search-input-wrap">
+      <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
+      <div id="searchSuggestions" class="search-suggestions"></div>
+    </div>
+    <select id="searchCategory">
+      <option value="">Todas las categorías</option>
+    </select>
+    <button type="submit">Buscar</button>
+  </form>
+
+  <div id="categoryButtons"></div>
+
+  <div id="productGrid">Cargando productos...</div>
+
+  <button class="cart-float" onclick="StoreApp.openCart()">
+    🛒 <span id="cartCount">0</span>
+  </button>
+
+  <footer>
+    <h4 data-store="nombre"></h4>
+    <p data-store="slogan"></p>
+    <p>
+      <a data-store="whatsapp-link" href="#" target="_blank">WhatsApp</a> ·
+      <a data-store="email" href="#"></a> ·
+      <a data-store="facebook" href="#" target="_blank">Facebook</a>
+    </p>
+    <p data-store="direccion"></p>
+    <p data-store="horario"></p>
+    <p>© <span data-store="anio"></span> <span data-store="nombre"></span> — Todos los derechos reservados.</p>
+  </footer>
+
+  <script src="/js/store-app.js"></script>
+  <script>
+    let productosCache = [];
+    let categoriaActiva = '';
+
+    function renderProductos(lista) {
+      const grid = document.getElementById('productGrid');
+      if (!lista.length) { grid.innerHTML = '<p>No hay productos en esta categoría.</p>'; return; }
+      grid.innerHTML = lista.map((p) => StoreApp.renderProductCard(p)).join('');
+    }
+
+    function aplicarFiltro() {
+      const filtrados = categoriaActiva
+        ? productosCache.filter((p) => p.categoria === categoriaActiva)
+        : productosCache;
+      renderProductos(filtrados);
+    }
+
+    (async function start() {
+      const config = await StoreApp.initStore();
+
+      // Poblar el <select> del buscador con las categorías de la config
+      const select = document.getElementById('searchCategory');
+      config.categorias.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nombre;
+        select.appendChild(opt);
+      });
+
+      document.getElementById('categoryButtons').addEventListener('click', (e) => {
+        if (!e.target.matches('.cat-btn')) return;
+        document.querySelectorAll('.cat-btn').forEach((b) => b.classList.remove('active'));
+        e.target.classList.add('active');
+        categoriaActiva = categoriaActiva === e.target.dataset.cat ? '' : e.target.dataset.cat;
+        aplicarFiltro();
+      });
+
+      productosCache = await fetch('/api/products').then((r) => r.json());
+      aplicarFiltro();
+      StoreApp.attachSpotlight('#productGrid');
+
+      StoreApp.setupAutocomplete(
+        document.getElementById('searchText'),
+        document.getElementById('searchSuggestions'),
+        () => productosCache
+      );
+    })();
+  </script>
+</body>
+</html>

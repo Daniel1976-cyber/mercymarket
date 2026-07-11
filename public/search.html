@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resultados de búsqueda</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <img data-store="logo" class="logo-round" src="" alt="logo" />
+    <div>
+      <div class="store-name" data-store="nombre"></div>
+      <div class="slogan" data-store="slogan"></div>
+    </div>
+    <span id="exchangeRateDisplay" class="exchange-rate">Tasa: --</span>
+  </header>
+
+  <form class="search-panel" onsubmit="event.preventDefault(); buscarYRender();">
+    <div class="search-input-wrap">
+      <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
+      <div id="searchSuggestions" class="search-suggestions"></div>
+    </div>
+    <select id="searchCategory">
+      <option value="">Todas las categorías</option>
+    </select>
+    <button type="submit">Buscar</button>
+  </form>
+
+  <div style="padding: 0 1.5rem; margin-top: 1rem;">
+    <a href="index.html" style="display:inline-block; text-decoration:none; background:white; border:1px solid var(--color-primario); color:var(--color-primario); padding:.5rem 1rem; border-radius:.4rem; font-size:.9rem;">
+      ⬅ Volver a la tienda
+    </a>
+  </div>
+
+  <!-- Modo "detalle de producto" (llegó vía ?id=) -->
+  <div id="detalleWrap" style="display:none;">
+    <div id="productDetail" class="product-detail"></div>
+    <h3 class="similares-titulo">Productos similares</h3>
+    <div id="similaresGrid">Cargando...</div>
+  </div>
+
+  <!-- Modo "resultados de texto" (llegó vía ?q=/&cat=) -->
+  <div id="resultadosWrap" style="display:none;">
+    <h3 style="padding: 0 1.5rem;" id="resultsTitle"></h3>
+    <div id="productGrid">Buscando...</div>
+  </div>
+
+  <button class="cart-float" onclick="StoreApp.openCart()">
+    🛒 <span id="cartCount">0</span>
+  </button>
+
+  <script src="/js/store-app.js"></script>
+  <script>
+    let productosCache = [];
+
+    function buscarYRender() {
+      const q = document.getElementById('searchText').value.trim();
+      const cat = document.getElementById('searchCategory').value;
+      window.location.href = StoreApp.buildSearchUrl(q, cat);
+    }
+
+    function mostrarResultados(q, cat) {
+      document.getElementById('detalleWrap').style.display = 'none';
+      document.getElementById('resultadosWrap').style.display = 'block';
+
+      document.getElementById('resultsTitle').textContent = q ? `Resultados para "${q}"` : 'Todos los productos';
+      const filtrados = productosCache.filter((p) => {
+        const coincideTexto = !q || p.nombre.toLowerCase().includes(q.toLowerCase());
+        const coincideCategoria = !cat || p.categoria === cat;
+        return coincideTexto && coincideCategoria;
+      });
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = filtrados.length
+        ? filtrados.map((p) => StoreApp.renderProductCard(p)).join('')
+        : '<p style="padding:0 1.5rem;">No se encontraron productos.</p>';
+      StoreApp.attachSpotlight('#productGrid');
+    }
+
+    function mostrarDetalle(id) {
+      const producto = productosCache.find((p) => p.id === id);
+      document.getElementById('resultadosWrap').style.display = 'none';
+      document.getElementById('detalleWrap').style.display = 'block';
+
+      if (!producto) {
+        document.getElementById('productDetail').innerHTML = '<p>Producto no encontrado.</p>';
+        document.getElementById('similaresGrid').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('productDetail').innerHTML = `
+        <div class="img-wrap">
+          <img src="${producto.img}" alt="${producto.nombre}" />
+        </div>
+        <div>
+          <h2>${producto.nombre}</h2>
+          <div class="price">$${StoreApp.formatMoney(producto.precio_usd)}${producto.precio_cup ? ` / ${StoreApp.formatMoney(producto.precio_cup)} CUP` : ''}</div>
+          <p class="descripcion">${producto.descripcion || ''}</p>
+          <button onclick='StoreApp.addToCart(${JSON.stringify(producto)})'>Agregar al carrito</button>
+        </div>
+      `;
+
+      const similares = productosCache
+        .filter((p) => p.categoria === producto.categoria && p.id !== producto.id)
+        .slice(0, 10);
+
+      const grid = document.getElementById('similaresGrid');
+      grid.innerHTML = similares.length
+        ? similares.map((p) => StoreApp.renderProductCard(p)).join('')
+        : '<p style="padding:0 1.5rem;">No hay productos similares por ahora.</p>';
+
+      StoreApp.attachSpotlight('#productDetail');
+      StoreApp.attachSpotlight('#similaresGrid');
+    }
+
+    (async function start() {
+      const config = await StoreApp.initStore();
+
+      const select = document.getElementById('searchCategory');
+      config.categorias.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nombre;
+        select.appendChild(opt);
+      });
+
+      productosCache = await fetch('/api/products').then((r) => r.json());
+
+      StoreApp.setupAutocomplete(
+        document.getElementById('searchText'),
+        document.getElementById('searchSuggestions'),
+        () => productosCache,
+        (producto) => { window.location.href = `search.html?id=${producto.id}`; }
+      );
+
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const q = params.get('q') || '';
+      const cat = params.get('cat') || '';
+
+      document.getElementById('searchCategory').value = cat;
+
+      if (id) {
+        mostrarDetalle(parseInt(id, 10));
+      } else {
+        document.getElementById('searchText').value = q;
+        mostrarResultados(q, cat);
+      }
+    })();
+  </script>
+</body>
+</html>
