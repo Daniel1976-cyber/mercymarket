@@ -37,7 +37,7 @@ export const storeConfig = {
     primario: process.env.STORE_COLOR_PRIMARY || '#0f766e',
     acento: process.env.STORE_COLOR_ACCENT || '#f59e0b',
   },
-  whatsapp: process.env.STORE_WHATSAPP || '+52 981 279 1394',
+  whatsapp: process.env.STORE_WHATSAPP || '529812791394',
   email: process.env.STORE_EMAIL || '',
   facebook: process.env.STORE_FACEBOOK || '',
   direccion: process.env.STORE_ADDRESS || 'Calle J 76A entre primera y segunda. Santa Catalina',
