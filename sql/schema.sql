@@ -24,8 +24,13 @@ create table if not exists exchange_rates (
 -- vez que arranca la tienda, si está vacía.
 create table if not exists categorias (
   id text primary key,       -- slug generado del nombre, ej: "alimentos"
-  nombre text not null
+  nombre text not null,
+  activa boolean not null default true  -- el admin puede ocultarla sin borrarla
 );
+
+-- Si ya tenías la tabla categorias de antes (sin esta columna), esto la
+-- agrega sin tocar las categorías existentes — todas quedan activas.
+alter table categorias add column if not exists activa boolean not null default true;
 
 -- Bucket de imágenes: créalo desde Dashboard -> Storage -> New bucket
 -- usando el mismo nombre que pongas en SUPABASE_BUCKET del .env.local,

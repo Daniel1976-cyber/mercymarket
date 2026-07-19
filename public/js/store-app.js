@@ -26,6 +26,22 @@ function applyBranding(config) {
   // Colores vía variables CSS -> permite que styles.css sea igual en todas las tiendas
   document.documentElement.style.setProperty('--color-primario', config.colores.primario);
   document.documentElement.style.setProperty('--color-acento', config.colores.acento);
+  document.documentElement.style.setProperty(
+    '--header-gradiente',
+    config.colores.headerGradiente || config.colores.primario
+  );
+
+  // Tipografías del tema (opcional). Si la tienda eligió un tema con
+  // fuentes de Google Fonts, se inyecta el link una sola vez.
+  if (config.fuenteGoogleUrl && !document.getElementById('storeFontLink')) {
+    const link = document.createElement('link');
+    link.id = 'storeFontLink';
+    link.rel = 'stylesheet';
+    link.href = config.fuenteGoogleUrl;
+    document.head.appendChild(link);
+  }
+  document.documentElement.style.setProperty('--fuente-titulo', config.fuenteTitulo || 'inherit');
+  document.documentElement.style.setProperty('--fuente-cuerpo', config.fuenteCuerpo || 'system-ui, sans-serif');
 
   document.querySelectorAll('[data-store="nombre"]').forEach((el) => (el.textContent = config.nombre));
   document.querySelectorAll('[data-store="slogan"]').forEach((el) => (el.textContent = config.slogan));
@@ -128,7 +144,7 @@ function renderCartItems() {
       <img src="${item.img}" alt="${item.nombre}" />
       <div class="info">
         <div class="nombre">${item.nombre}</div>
-        <div class="precio">$${formatMoney(item.precio_usd)}${item.precio_cup ? ` / ${formatMoney(item.precio_cup)} CUP` : ''} c/u</div>
+        <div class="precio">${formatPrecio(item.precio_usd, item.precio_cup)} c/u</div>
       </div>
       <div class="cart-qty">
         <button onclick="StoreApp.changeCartQty(${item.id}, -1)" aria-label="Quitar uno">−</button>
@@ -139,10 +155,9 @@ function renderCartItems() {
     </div>
   `).join('');
 
-  const total = cart.reduce((acc, i) => acc + i.precio_usd * i.cantidad, 0);
+  const total = cart.reduce((acc, i) => acc + (i.precio_usd || 0) * i.cantidad, 0);
   const totalCup = cart.reduce((acc, i) => acc + (i.precio_cup || 0) * i.cantidad, 0);
-  const hayCup = cart.some((i) => i.precio_cup);
-  totalDisplay.textContent = `$${formatMoney(total)}${hayCup ? ` / ${formatMoney(totalCup)} CUP` : ''}`;
+  totalDisplay.textContent = formatTotal(total, totalCup);
 }
 
 function openCart() {
@@ -180,12 +195,11 @@ function checkoutPorWhatsApp() {
   const { config, cart } = window.STORE;
   if (!cart.length) return;
   const detalle = cart
-    .map((i) => `• ${i.nombre} x${i.cantidad} — $${formatMoney(i.precio_usd)}${i.precio_cup ? ` / ${formatMoney(i.precio_cup)} CUP` : ''}`)
+    .map((i) => `• ${i.nombre} x${i.cantidad} — ${formatPrecio(i.precio_usd, i.precio_cup)}`)
     .join('%0A');
-  const total = cart.reduce((acc, i) => acc + i.precio_usd * i.cantidad, 0);
+  const total = cart.reduce((acc, i) => acc + (i.precio_usd || 0) * i.cantidad, 0);
   const totalCup = cart.reduce((acc, i) => acc + (i.precio_cup || 0) * i.cantidad, 0);
-  const hayCup = cart.some((i) => i.precio_cup);
-  const mensaje = `Hola, quiero pedir:%0A${detalle}%0A%0ATotal: $${formatMoney(total)}${hayCup ? ` / ${formatMoney(totalCup)} CUP` : ''}`;
+  const mensaje = `Hola, quiero pedir:%0A${detalle}%0A%0ATotal: ${formatTotal(total, totalCup)}`;
   window.open(`https://wa.me/${config.whatsapp}?text=${mensaje}`, '_blank');
 }
 
@@ -209,6 +223,26 @@ function formatMoney(value) {
   return Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Formatea el precio de UN producto, sea cual sea el modo de la tienda:
+// - Solo USD:      "$5.00"
+// - USD + CUP:      "$5.00 / 1600.00 CUP"
+// - Solo CUP:      "1600.00 CUP"   (sin signo $, porque no hay USD)
+function formatPrecio(precioUsd, precioCup) {
+  const partes = [];
+  if (precioUsd !== null && precioUsd !== undefined) partes.push(`$${formatMoney(precioUsd)}`);
+  if (precioCup !== null && precioCup !== undefined) partes.push(`${formatMoney(precioCup)} CUP`);
+  return partes.join(' / ');
+}
+
+// Formatea un TOTAL (suma de varios productos). Se basa en el modo de la
+// tienda (config.soloCup) en vez de mirar item por item, porque dentro de
+// una misma tienda todos los productos comparten el mismo modo de moneda.
+function formatTotal(totalUsd, totalCup) {
+  const config = window.STORE.config;
+  if (config?.soloCup) return `${formatMoney(totalCup)} CUP`;
+  return `$${formatMoney(totalUsd)}${totalCup ? ` / ${formatMoney(totalCup)} CUP` : ''}`;
+}
+
 // ─── Tarjeta de producto (usada por index.html y search.html) ────────────
 function renderProductCard(p) {
   return `
@@ -218,7 +252,7 @@ function renderProductCard(p) {
       </div>
       <div class="body">
         <div>${p.nombre}</div>
-        <div class="price">$${formatMoney(p.precio_usd)}${p.precio_cup ? ` / ${formatMoney(p.precio_cup)} CUP` : ''}</div>
+        <div class="price">${formatPrecio(p.precio_usd, p.precio_cup)}</div>
         <button onclick='StoreApp.addToCart(${JSON.stringify(p)})'>Agregar</button>
       </div>
     </div>
@@ -325,6 +359,8 @@ window.StoreApp = {
   submitSearch,
   buildSearchUrl,
   formatMoney,
+  formatPrecio,
+  formatTotal,
   renderProductCard,
   attachSpotlight,
   setupAutocomplete,

@@ -29,20 +29,35 @@ function parseCategories(raw) {
 }
 
 export const storeConfig = {
-  nombre: process.env.STORE_NAME || 'Mercy Market',
-  slug: process.env.STORE_SLUG || 'Mercy Market',
-  slogan: process.env.STORE_SLOGAN || 'Lo que necesitas, más cerca de ti.',
-  logo: process.env.STORE_LOGO_PATH || '/logo.webp',
+  nombre: process.env.STORE_NAME || 'Mi Tienda',
+  slug: process.env.STORE_SLUG || 'mi-tienda',
+  slogan: process.env.STORE_SLOGAN || '',
+  logo: process.env.STORE_LOGO_PATH || '/logo.png',
   colores: {
     primario: process.env.STORE_COLOR_PRIMARY || '#0f766e',
     acento: process.env.STORE_COLOR_ACCENT || '#f59e0b',
+    // Opcional: degradado del header en vez de color plano, ej:
+    // "linear-gradient(135deg, #1a3d2b 0%, #2d6a4f 100%)". Si se deja
+    // vacío, el header usa "primario" como color sólido de siempre.
+    headerGradiente: process.env.STORE_HEADER_GRADIENT || '',
   },
-  whatsapp: process.env.STORE_WHATSAPP || '529812791394',
+  // Tipografías del tema (opcional). Si se deja vacío, usa la fuente del
+  // sistema como hasta ahora. "fuenteGoogleUrl" es el link de Google Fonts
+  // que carga las fuentes elegidas (ver temas/CATALOGO-DE-TEMAS.md).
+  fuenteTitulo: process.env.STORE_FONT_TITULO || '',
+  fuenteCuerpo: process.env.STORE_FONT_BODY || '',
+  fuenteGoogleUrl: process.env.STORE_FONT_GOOGLE_URL || '',
+  whatsapp: process.env.STORE_WHATSAPP || '',
   email: process.env.STORE_EMAIL || '',
   facebook: process.env.STORE_FACEBOOK || '',
-  direccion: process.env.STORE_ADDRESS || 'Calle J 76A entre primera y segunda. Santa Catalina',
-  horario: process.env.STORE_SCHEDULE || 'Lun–Sáb: 8:30 AM – 4:00 PM',
+  direccion: process.env.STORE_ADDRESS || '',
+  horario: process.env.STORE_SCHEDULE || '',
   mostrarTasaCambio: (process.env.STORE_SHOW_EXCHANGE_RATE || 'false').toLowerCase() === 'true',
+
+  // Para tiendas que NO manejan USD en absoluto: el precio que cargan en
+  // el admin ya ES el valor en CUP directo, sin tasa ni conversión.
+  // Es excluyente con mostrarTasaCambio (no tiene sentido activar las dos).
+  soloCup: (process.env.STORE_SOLO_CUP || 'false').toLowerCase() === 'true',
 
   // Solo se usa UNA vez, para poblar la tabla `categorias` de Supabase la
   // primera vez que la tienda arranca y esa tabla está vacía. Después de eso,
@@ -79,6 +94,10 @@ export const storeConfig = {
       direccion: this.direccion,
       horario: this.horario,
       mostrarTasaCambio: this.mostrarTasaCambio,
+      soloCup: this.soloCup,
+      fuenteTitulo: this.fuenteTitulo,
+      fuenteCuerpo: this.fuenteCuerpo,
+      fuenteGoogleUrl: this.fuenteGoogleUrl,
     };
   },
 };

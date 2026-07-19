@@ -128,6 +128,10 @@
         ✏️ Editar productos
         <span class="desc">Edita datos o cambia si el producto se ve al cliente</span>
       </button>
+      <button class="accion-btn" onclick="abrirListaCategorias()">
+        🏷️ Categorías
+        <span class="desc">Oculta las que no uses, para simplificar el menú del cliente</span>
+      </button>
     </div>
   </div>
 
@@ -170,6 +174,18 @@
         <button data-filtro="no-disponibles" onclick="filtrarLista('no-disponibles')">No disponibles</button>
       </div>
       <div id="listaContenedor">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- CATEGORÍAS (ocultar / mostrar) -->
+  <div id="listaCategorias" class="view">
+    <div class="panel" style="max-width: 600px;">
+      <h3>Categorías</h3>
+      <p style="color:#64748b; font-size:.85rem; margin-top:-.5rem;">
+        Ocultar una categoría la quita del menú y del buscador para el cliente — no borra ni afecta los productos que ya tengas en ella.
+      </p>
+      <div id="listaCategoriasContenedor">Cargando...</div>
+      <p id="categoriaToggleMsg" style="font-size:.85rem;"></p>
     </div>
   </div>
 
@@ -227,6 +243,7 @@
     let token = sessionStorage.getItem('adminToken') || '';
     let config = null;
     let productosCache = [];  // catálogo completo (admin), incluye no disponibles
+    let categoriasCache = []; // todas las categorías (admin), incluye ocultas
     let currentEditId = null; // null = modo "agregar"
     let filtroActual = 'todos';
 
@@ -253,9 +270,24 @@
       entrarAlPanel();
     }
 
-    function entrarAlPanel() {
+    async function entrarAlPanel() {
       document.getElementById('adminNav').style.display = 'flex';
+      await poblarSelectCategorias();
       showView('home');
+    }
+
+    async function poblarSelectCategorias() {
+      await cargarCategoriasAdmin();
+      const select = document.getElementById('categoria');
+      const valorPrevio = select.value;
+      select.querySelectorAll('option:not([value=""])').forEach((opt) => opt.remove());
+      [...categoriasCache].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.activa ? c.nombre : `${c.nombre} (oculta)`;
+        select.appendChild(opt);
+      });
+      if (valorPrevio) select.value = valorPrevio;
     }
 
     function logout() {
@@ -325,7 +357,7 @@
           <img src="${p.img}" alt="${p.nombre}" />
           <div class="info">
             <div class="nombre">${p.nombre}</div>
-            <div class="meta">$${StoreApp.formatMoney(p.precio_usd)} · ${p.categoria}
+            <div class="meta">${StoreApp.formatPrecio(p.precio_usd, p.precio_cup)} · ${p.categoria}
               <span class="badge ${p.disponible ? 'si' : 'no'}">${p.disponible ? 'Disponible' : 'No disponible'}</span>
             </div>
           </div>
@@ -349,6 +381,93 @@
       }
     }
 
+    // ─── Categorías (ocultar / mostrar) ───────────────────────────────────────
+    async function cargarCategoriasAdmin() {
+      const res = await fetch('/api/admin/categories', { headers: { 'x-admin-token': token } });
+      if (res.status === 401) { logout(); return []; }
+      categoriasCache = await res.json();
+      return categoriasCache;
+    }
+
+    async function abrirListaCategorias() {
+      showView('listaCategorias');
+      await cargarCategoriasAdmin();
+      renderListaCategorias();
+    }
+
+    function renderListaCategorias() {
+      const lista = [...categoriasCache].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      const contenedor = document.getElementById('listaCategoriasContenedor');
+      if (!lista.length) { contenedor.innerHTML = '<p>Todavía no has creado ninguna categoría.</p>'; return; }
+
+      contenedor.innerHTML = lista.map((c) => `
+        <div class="producto-row" data-cat-id="${c.id}">
+          <div class="info">
+            <div class="nombre nombre-texto">${c.nombre}</div>
+            <input class="nombre-input" style="display:none; width:100%; padding:.3rem; border:1px solid #cbd5e1; border-radius:.3rem; margin-bottom:.3rem;" value="${c.nombre}" />
+            <div class="meta">
+              <span class="badge ${c.activa ? 'si' : 'no'}">${c.activa ? 'Activa' : 'Oculta'}</span>
+            </div>
+          </div>
+          <div class="acciones">
+            <button class="btn-editar btn-editar-cat" onclick="iniciarEdicionCategoria('${c.id}')">Editar</button>
+            <button class="btn-editar guardar-cat" style="display:none;" onclick="guardarNombreCategoria('${c.id}')">Guardar</button>
+            <button class="${c.activa ? 'btn-ocultar' : 'btn-mostrar'}" onclick="toggleCategoriaActiva('${c.id}', ${!c.activa})">${c.activa ? 'Ocultar' : 'Mostrar'}</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function iniciarEdicionCategoria(id) {
+      const row = document.querySelector(`.producto-row[data-cat-id="${id}"]`);
+      row.querySelector('.nombre-texto').style.display = 'none';
+      row.querySelector('.nombre-input').style.display = 'block';
+      row.querySelector('.btn-editar-cat').style.display = 'none';
+      row.querySelector('.guardar-cat').style.display = 'inline-block';
+      row.querySelector('.nombre-input').focus();
+    }
+
+    async function guardarNombreCategoria(id) {
+      const row = document.querySelector(`.producto-row[data-cat-id="${id}"]`);
+      const nuevoNombre = row.querySelector('.nombre-input').value.trim();
+      const msg = document.getElementById('categoriaToggleMsg');
+      if (!nuevoNombre) return;
+
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ nombre: nuevoNombre }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await cargarCategoriasAdmin();
+        renderListaCategorias();
+        msg.style.color = '#16a34a';
+        msg.textContent = 'Nombre actualizado ✅';
+      } else {
+        msg.style.color = '#dc2626';
+        msg.textContent = `Error al actualizar: ${data.error || res.status}`;
+      }
+    }
+
+    async function toggleCategoriaActiva(id, nuevoValor) {
+      const msg = document.getElementById('categoriaToggleMsg');
+      msg.textContent = '';
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ activa: nuevoValor }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await cargarCategoriasAdmin();
+        renderListaCategorias();
+      } else {
+        msg.style.color = '#dc2626';
+        msg.textContent = `Error al actualizar: ${data.error || res.status}`;
+      }
+    }
+
     // ─── Formulario: agregar / editar ────────────────────────────────────────
     function abrirFormulario(id) {
       currentEditId = id;
@@ -368,7 +487,7 @@
         if (!p) return;
         document.getElementById('formTitulo').textContent = `Editando: ${p.nombre}`;
         document.getElementById('nombre').value = p.nombre;
-        document.getElementById('precio').value = p.precio_usd;
+        document.getElementById('precio').value = config.soloCup ? p.precio_cup : p.precio_usd;
         document.getElementById('descripcion').value = p.descripcion || '';
         document.getElementById('categoria').value = p.categoria;
         document.getElementById('disponible').checked = !!p.disponible;
@@ -531,8 +650,7 @@
         return;
       }
 
-      config.categorias.push(data);
-      config.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      categoriasCache.push(data);
 
       const select = document.getElementById('categoria');
       const opt = document.createElement('option');
@@ -549,12 +667,7 @@
     // ─── Arranque ────────────────────────────────────────────────────────
     (async function start() {
       config = await StoreApp.initStore();
-      const select = document.getElementById('categoria');
-      config.categorias.forEach((c) => {
-        const opt = document.createElement('option');
-        opt.value = c.id; opt.textContent = c.nombre;
-        select.appendChild(opt);
-      });
+      document.getElementById('precio').placeholder = config.soloCup ? 'Precio (CUP)' : 'Precio (USD)';
 
       if (token) entrarAlPanel();
     })();

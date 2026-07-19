@@ -94,7 +94,7 @@
         </div>
         <div>
           <h2>${producto.nombre}</h2>
-          <div class="price">$${StoreApp.formatMoney(producto.precio_usd)}${producto.precio_cup ? ` / ${StoreApp.formatMoney(producto.precio_cup)} CUP` : ''}</div>
+          <div class="price">${StoreApp.formatPrecio(producto.precio_usd, producto.precio_cup)}</div>
           <p class="descripcion">${producto.descripcion || ''}</p>
           <button onclick='StoreApp.addToCart(${JSON.stringify(producto)})'>Agregar al carrito</button>
         </div>
