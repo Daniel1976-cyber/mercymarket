@@ -29,10 +29,10 @@ function parseCategories(raw) {
 }
 
 export const storeConfig = {
-  nombre: process.env.STORE_NAME || 'Mi Tienda',
-  slug: process.env.STORE_SLUG || 'mi-tienda',
-  slogan: process.env.STORE_SLOGAN || '',
-  logo: process.env.STORE_LOGO_PATH || '/logo.png',
+  nombre: process.env.STORE_NAME || 'Mercy Market',
+  slug: process.env.STORE_SLUG || 'Mercy Market',
+  slogan: process.env.STORE_SLOGAN || 'Lo que necesitas, más cerca de ti',
+  logo: process.env.STORE_LOGO_PATH || '/logo.webp',
   colores: {
     primario: process.env.STORE_COLOR_PRIMARY || '#0f766e',
     acento: process.env.STORE_COLOR_ACCENT || '#f59e0b',
