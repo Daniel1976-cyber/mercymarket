@@ -50,7 +50,7 @@ export const storeConfig = {
   whatsapp: process.env.STORE_WHATSAPP || '',
   email: process.env.STORE_EMAIL || '',
   facebook: process.env.STORE_FACEBOOK || '',
-  direccion: process.env.STORE_ADDRESS || '',
+  direccion: process.env.STORE_ADDRESS || 'Calle J 76A entre 1ra y 2da',
   horario: process.env.STORE_SCHEDULE || '',
   mostrarTasaCambio: (process.env.STORE_SHOW_EXCHANGE_RATE || 'false').toLowerCase() === 'true',
 
