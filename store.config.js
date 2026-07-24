@@ -47,7 +47,7 @@ export const storeConfig = {
   fuenteTitulo: process.env.STORE_FONT_TITULO || '',
   fuenteCuerpo: process.env.STORE_FONT_BODY || '',
   fuenteGoogleUrl: process.env.STORE_FONT_GOOGLE_URL || '',
-  whatsapp: process.env.STORE_WHATSAPP || '',
+  whatsapp: process.env.STORE_WHATSAPP || '529812791394',
   email: process.env.STORE_EMAIL || '',
   facebook: process.env.STORE_FACEBOOK || '',
   direccion: process.env.STORE_ADDRESS || 'Calle J 76A entre 1ra y 2da',
