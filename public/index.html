@@ -3,36 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tienda</title>
+  <title>{{STORE_TITLE}}</title>
+  <meta name="description" content="{{STORE_DESCRIPTION}}" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{STORE_TITLE}}" />
+  <meta property="og:description" content="{{STORE_DESCRIPTION}}" />
+  <meta property="og:image" content="{{STORE_OG_IMAGE}}" />
+  <meta property="og:url" content="{{STORE_URL}}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{{STORE_TITLE}}" />
+  <meta name="twitter:description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="twitter:image" content="{{STORE_OG_IMAGE}}" />
+
+  <link rel="icon" href="{{STORE_LOGO}}" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+  <a href="#contenido-principal" class="skip-link">Saltar al contenido</a>
+
   <header>
-    <img data-store="logo" class="logo-round" src="" alt="logo" />
+    <img data-store="logo" class="logo-round" src="" alt="{{STORE_TITLE}}" />
     <div>
       <div class="store-name" data-store="nombre"></div>
       <div class="slogan" data-store="slogan"></div>
     </div>
-    <span id="exchangeRateDisplay" class="exchange-rate">Tasa: --</span>
+    <span id="exchangeRateDisplay" class="exchange-rate" aria-live="polite">Tasa: --</span>
   </header>
 
-  <form class="search-panel" onsubmit="event.preventDefault(); StoreApp.submitSearch();">
+  <form class="search-panel" role="search" onsubmit="event.preventDefault(); StoreApp.submitSearch();">
     <div class="search-input-wrap">
+      <label for="searchText" class="visually-hidden">Buscar producto</label>
       <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
-      <div id="searchSuggestions" class="search-suggestions"></div>
+      <div id="searchSuggestions" class="search-suggestions" role="listbox"></div>
     </div>
-    <select id="searchCategory">
-      <option value="">Todas las categorías</option>
-    </select>
-    <button type="submit">Buscar</button>
+    <button type="submit" class="search-icon-btn" aria-label="Buscar">🔍</button>
   </form>
 
-  <div id="categoryButtons"></div>
+  <nav id="categoryButtons" aria-label="Categorías de productos"></nav>
 
-  <div id="productGrid">Cargando productos...</div>
+  <main id="contenido-principal">
+    <div id="productGrid" aria-live="polite"></div>
+  </main>
 
-  <button class="cart-float" onclick="StoreApp.openCart()">
-    🛒 <span id="cartCount">0</span>
+  <button class="cart-float" onclick="StoreApp.openCart()" aria-label="Ver carrito de compras">
+    🛒 <span id="cartCount" aria-live="polite">0</span>
   </button>
 
   <footer>
@@ -67,22 +82,22 @@
     }
 
     (async function start() {
-      const config = await StoreApp.initStore();
+      document.getElementById('productGrid').innerHTML = StoreApp.renderSkeletons();
 
-      // Poblar el <select> del buscador con las categorías de la config
-      const select = document.getElementById('searchCategory');
-      config.categorias.forEach((c) => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.nombre;
-        select.appendChild(opt);
-      });
+      const config = await StoreApp.initStore();
 
       document.getElementById('categoryButtons').addEventListener('click', (e) => {
         if (!e.target.matches('.cat-btn')) return;
-        document.querySelectorAll('.cat-btn').forEach((b) => b.classList.remove('active'));
-        e.target.classList.add('active');
-        categoriaActiva = categoriaActiva === e.target.dataset.cat ? '' : e.target.dataset.cat;
+        const yaActiva = e.target.classList.contains('active');
+        document.querySelectorAll('.cat-btn').forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        if (!yaActiva) {
+          e.target.classList.add('active');
+          e.target.setAttribute('aria-pressed', 'true');
+        }
+        categoriaActiva = yaActiva ? '' : e.target.dataset.cat;
         aplicarFiltro();
       });
 

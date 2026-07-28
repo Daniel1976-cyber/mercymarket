@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.join(__dirname, '..');
 
 const app = express();
+app.set('trust proxy', true); // necesario en Vercel para que req.protocol detecte "https" bien
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -53,6 +54,10 @@ async function cargarProductos() {
       disponible: p.disponible,
       img: p.img || `https://via.placeholder.com/400x300?text=${encodeURIComponent(p.nombre)}`,
       descripcion: p.descripcion || '',
+      // Costo/cantidad: solo para métricas del admin. NUNCA se envían al
+      // catálogo público (ver el "sanear" antes de responder /api/products).
+      costo: p.costo === null || p.costo === undefined ? null : Number(p.costo),
+      cantidad: p.cantidad === null || p.cantidad === undefined ? null : Number(p.cantidad),
     }));
     console.log(`[${storeConfig.nombre}] Cargados ${productos.length} productos desde Supabase`);
   } catch (e) {
@@ -134,15 +139,22 @@ app.get('/api/admin/categories', verifyAdmin, async (req, res) => {
 });
 
 // ─── Catálogo ──────────────────────────────────────────────────────────────
+// Quita datos internos del admin (costo, cantidad en stock) antes de que
+// cualquier respuesta pública los toque. El cliente NUNCA debe ver esto.
+function paraCliente(p) {
+  const { costo, cantidad, ...publico } = p;
+  return publico;
+}
+
 // Público: solo lo disponible. Si no hay inventario, el admin lo oculta con
 // el interruptor "disponible" en vez de borrarlo — así el producto sigue
 // existiendo en la base de datos y no hay que recrearlo cuando vuelva a haber stock.
 app.get('/api/products', async (req, res) => {
   await productosListos;
-  res.json(productos.filter((p) => p.disponible));
+  res.json(productos.filter((p) => p.disponible).map(paraCliente));
 });
 
-// Admin: todo el catálogo (disponible y no disponible), para el dashboard y la edición.
+// Admin: todo el catálogo (disponible y no disponible, con costo/cantidad), para el dashboard y la edición.
 app.get('/api/admin/products', verifyAdmin, async (req, res) => {
   await productosListos;
   res.json(productos);
@@ -152,7 +164,7 @@ app.get('/api/products/:id', async (req, res) => {
   await productosListos;
   const producto = productos.find((p) => p.id === parseInt(req.params.id, 10));
   if (!producto) return res.status(404).json({ message: 'Producto no encontrado' });
-  res.json(producto);
+  res.json(paraCliente(producto));
 });
 
 app.get('/api/categories', async (req, res) => {
@@ -202,10 +214,12 @@ app.post('/api/admin/products', verifyAdmin, async (req, res) => {
   if (!supabaseService) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado en esta tienda' });
   }
-  const { nombre, categoria, subcategoria, precio, disponible, imagen, img, descripcion } = req.body;
+  const { nombre, categoria, subcategoria, precio, disponible, imagen, img, descripcion, costo, cantidad } = req.body;
   const { data, error } = await supabaseService.from('productos').insert([{
     nombre, categoria, subcategoria: subcategoria || 'General',
     precio, disponible: disponible !== false, img: imagen || img, descripcion,
+    costo: costo === '' || costo === undefined ? null : costo,
+    cantidad: cantidad === '' || cantidad === undefined ? null : cantidad,
   }]).select();
   if (error) return res.status(500).json({ error: error.message });
   await cargarProductos();
@@ -217,10 +231,15 @@ app.put('/api/admin/products/:id', verifyAdmin, async (req, res) => {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado en esta tienda' });
   }
   const { id } = req.params;
-  const camposPermitidos = ['nombre', 'categoria', 'subcategoria', 'precio', 'disponible', 'descripcion'];
+  const camposPermitidos = ['nombre', 'categoria', 'subcategoria', 'precio', 'disponible', 'descripcion', 'costo', 'cantidad'];
   const cambios = {};
   for (const campo of camposPermitidos) {
-    if (req.body[campo] !== undefined) cambios[campo] = req.body[campo];
+    if (req.body[campo] !== undefined) {
+      const valor = req.body[campo];
+      // costo/cantidad son opcionales: "" (campo vacío en el form) debe
+      // guardarse como null, no como texto vacío (rompería la columna numérica).
+      cambios[campo] = (campo === 'costo' || campo === 'cantidad') && valor === '' ? null : valor;
+    }
   }
   // "imagen" o "img": cualquiera de los dos nombres actualiza la columna img
   if (req.body.imagen !== undefined) cambios.img = req.body.imagen;
@@ -348,7 +367,47 @@ app.put('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
 
 // ─── Archivos estáticos ────────────────────────────────────────────────────
 const publicDir = path.join(projectRoot, 'public');
+
+// Reemplaza los placeholders {{STORE_...}} del HTML con los datos reales de
+// esta tienda, para que el título/descripción/imagen sean correctos incluso
+// para buscadores y vistas previas de WhatsApp/Facebook (que no ejecutan
+// JavaScript, así que lo que hace store-app.js en el navegador no les sirve).
+function renderPaginaConMeta(nombreArchivo, req) {
+  const ruta = path.join(publicDir, nombreArchivo);
+  const html = fs.readFileSync(ruta, 'utf8');
+
+  const urlActual = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  const titulo = storeConfig.nombre;
+  const descripcion = (storeConfig.slogan || '').trim()
+    || `Catálogo de ${storeConfig.nombre}. Haz tu pedido fácil y rápido por WhatsApp.`;
+  const logoAbsoluto = /^https?:\/\//.test(storeConfig.logo)
+    ? storeConfig.logo
+    : `${req.protocol}://${req.get('host')}${storeConfig.logo}`;
+
+  // search.html cumple dos roles distintos: ficha de un producto puntual
+  // (?id=, sí vale la pena que Google la indexe) o resultados de una
+  // búsqueda de texto libre (no debe competir con la página principal).
+  const esFichaDeProducto = nombreArchivo === 'search.html' && Boolean(req.query.id);
+  const robots = nombreArchivo === 'search.html'
+    ? (esFichaDeProducto ? 'index, follow' : 'noindex, follow')
+    : 'index, follow';
+
+  return html
+    .split('{{STORE_TITLE}}').join(titulo)
+    .split('{{STORE_DESCRIPTION}}').join(descripcion)
+    .split('{{STORE_OG_IMAGE}}').join(logoAbsoluto)
+    .split('{{STORE_URL}}').join(urlActual)
+    .split('{{STORE_LOGO}}').join(storeConfig.logo)
+    .split('{{STORE_ROBOTS}}').join(robots);
+}
+
+app.get('/', (req, res) => res.send(renderPaginaConMeta('index.html', req)));
+app.get('/search.html', (req, res) => res.send(renderPaginaConMeta('search.html', req)));
+
+// Evita el 404 de favicon.ico que piden algunos navegadores por su cuenta,
+// aunque ya exista el <link rel="icon"> apuntando al logo.
+app.get('/favicon.ico', (req, res) => res.redirect(storeConfig.logo));
+
 app.use(express.static(publicDir));
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
 export default app;

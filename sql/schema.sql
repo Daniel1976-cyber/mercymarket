@@ -75,6 +75,12 @@ alter table productos add column if not exists disponible boolean not null defau
 alter table productos add column if not exists subcategoria text default 'General';
 alter table productos add column if not exists descripcion text;
 
+-- Costo y cantidad en stock: 100% opcionales, solo para las métricas del
+-- admin (inversión, utilidad). Nunca se envían al cliente. Si se dejan en
+-- blanco, el producto simplemente no participa de esas métricas.
+alter table productos add column if not exists costo numeric;
+alter table productos add column if not exists cantidad integer;
+
 -- Crea la tabla categorias a partir de las categorías que YA usan tus
 -- productos actuales (en vez de las de STORE_CATEGORIES del .env), para
 -- que coincidan exactamente y ningún producto viejo quede "huérfano" de

@@ -3,28 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resultados de búsqueda</title>
+  <title>{{STORE_TITLE}}</title>
+  <meta name="description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="robots" content="{{STORE_ROBOTS}}" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{STORE_TITLE}}" />
+  <meta property="og:description" content="{{STORE_DESCRIPTION}}" />
+  <meta property="og:image" content="{{STORE_OG_IMAGE}}" />
+  <meta property="og:url" content="{{STORE_URL}}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{{STORE_TITLE}}" />
+  <meta name="twitter:description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="twitter:image" content="{{STORE_OG_IMAGE}}" />
+
+  <link rel="icon" href="{{STORE_LOGO}}" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+  <a href="#contenido-principal" class="skip-link">Saltar al contenido</a>
+
   <header>
-    <img data-store="logo" class="logo-round" src="" alt="logo" />
+    <img data-store="logo" class="logo-round" src="" alt="{{STORE_TITLE}}" />
     <div>
       <div class="store-name" data-store="nombre"></div>
       <div class="slogan" data-store="slogan"></div>
     </div>
-    <span id="exchangeRateDisplay" class="exchange-rate">Tasa: --</span>
+    <span id="exchangeRateDisplay" class="exchange-rate" aria-live="polite">Tasa: --</span>
   </header>
 
-  <form class="search-panel" onsubmit="event.preventDefault(); buscarYRender();">
+  <form class="search-panel" role="search" onsubmit="event.preventDefault(); buscarYRender();">
     <div class="search-input-wrap">
+      <label for="searchText" class="visually-hidden">Buscar producto</label>
       <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
       <div id="searchSuggestions" class="search-suggestions"></div>
     </div>
-    <select id="searchCategory">
-      <option value="">Todas las categorías</option>
-    </select>
-    <button type="submit">Buscar</button>
+    <button type="submit" class="search-icon-btn" aria-label="Buscar">🔍</button>
   </form>
 
   <div style="padding: 0 1.5rem; margin-top: 1rem;">
@@ -33,21 +47,23 @@
     </a>
   </div>
 
-  <!-- Modo "detalle de producto" (llegó vía ?id=) -->
-  <div id="detalleWrap" style="display:none;">
-    <div id="productDetail" class="product-detail"></div>
-    <h3 class="similares-titulo">Productos similares</h3>
-    <div id="similaresGrid">Cargando...</div>
-  </div>
+  <main id="contenido-principal">
+    <!-- Modo "detalle de producto" (llegó vía ?id=) -->
+    <div id="detalleWrap" style="display:none;">
+      <div id="productDetail" class="product-detail"></div>
+      <h3 class="similares-titulo">Productos similares</h3>
+      <div id="similaresGrid" aria-live="polite"></div>
+    </div>
 
-  <!-- Modo "resultados de texto" (llegó vía ?q=/&cat=) -->
-  <div id="resultadosWrap" style="display:none;">
-    <h3 style="padding: 0 1.5rem;" id="resultsTitle"></h3>
-    <div id="productGrid">Buscando...</div>
-  </div>
+    <!-- Modo "resultados de texto" (llegó vía ?q=/&cat=) -->
+    <div id="resultadosWrap" style="display:none;">
+      <h3 style="padding: 0 1.5rem;" id="resultsTitle"></h3>
+      <div id="productGrid" aria-live="polite"></div>
+    </div>
+  </main>
 
-  <button class="cart-float" onclick="StoreApp.openCart()">
-    🛒 <span id="cartCount">0</span>
+  <button class="cart-float" onclick="StoreApp.openCart()" aria-label="Ver carrito de compras">
+    🛒 <span id="cartCount" aria-live="polite">0</span>
   </button>
 
   <script src="/js/store-app.js"></script>
@@ -56,8 +72,7 @@
 
     function buscarYRender() {
       const q = document.getElementById('searchText').value.trim();
-      const cat = document.getElementById('searchCategory').value;
-      window.location.href = StoreApp.buildSearchUrl(q, cat);
+      window.location.href = StoreApp.buildSearchUrl(q, '');
     }
 
     function mostrarResultados(q, cat) {
@@ -88,17 +103,19 @@
         return;
       }
 
+      const nombreSeguro = StoreApp.escapeHtml(producto.nombre);
       document.getElementById('productDetail').innerHTML = `
         <div class="img-wrap">
-          <img src="${producto.img}" alt="${producto.nombre}" />
+          <img src="${producto.img}" alt="${nombreSeguro}" />
         </div>
         <div>
-          <h2>${producto.nombre}</h2>
+          <h2>${nombreSeguro}</h2>
           <div class="price">${StoreApp.formatPrecio(producto.precio_usd, producto.precio_cup)}</div>
-          <p class="descripcion">${producto.descripcion || ''}</p>
-          <button onclick='StoreApp.addToCart(${JSON.stringify(producto)})'>Agregar al carrito</button>
+          <p class="descripcion">${StoreApp.escapeHtml(producto.descripcion)}</p>
+          <button onclick='StoreApp.addToCart(${StoreApp.jsonParaAtributo(producto)})' aria-label="Agregar ${nombreSeguro} al carrito">Agregar al carrito</button>
         </div>
       `;
+      StoreApp.inyectarSchemaProducto(producto);
 
       const similares = productosCache
         .filter((p) => p.categoria === producto.categoria && p.id !== producto.id)
@@ -114,15 +131,10 @@
     }
 
     (async function start() {
-      const config = await StoreApp.initStore();
+      document.getElementById('productGrid').innerHTML = StoreApp.renderSkeletons();
+      document.getElementById('similaresGrid').innerHTML = StoreApp.renderSkeletons(4);
 
-      const select = document.getElementById('searchCategory');
-      config.categorias.forEach((c) => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.nombre;
-        select.appendChild(opt);
-      });
+      const config = await StoreApp.initStore();
 
       productosCache = await fetch('/api/products').then((r) => r.json());
 
@@ -137,8 +149,6 @@
       const id = params.get('id');
       const q = params.get('q') || '';
       const cat = params.get('cat') || '';
-
-      document.getElementById('searchCategory').value = cat;
 
       if (id) {
         mostrarDetalle(parseInt(id, 10));

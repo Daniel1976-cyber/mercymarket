@@ -30,29 +30,34 @@ function parseCategories(raw) {
 
 export const storeConfig = {
   nombre: process.env.STORE_NAME || 'Mercy Market',
-  slug: process.env.STORE_SLUG || 'Mercy Market',
-  slogan: process.env.STORE_SLOGAN || 'Lo que necesitas, más cerca de ti',
+  slug: process.env.STORE_SLUG || 'Mercy-Market',
+  slogan: process.env.STORE_SLOGAN || 'Lo que necesitas, más cerca de ti.',
   logo: process.env.STORE_LOGO_PATH || '/logo.webp',
   colores: {
-    primario: process.env.STORE_COLOR_PRIMARY || '#0f766e',
-    acento: process.env.STORE_COLOR_ACCENT || '#f59e0b',
+    primario: process.env.STORE_COLOR_PRIMARY || '#0B3D4C',
+    acento: process.env.STORE_COLOR_ACCENT || '#aa791f',
     // Opcional: degradado del header en vez de color plano, ej:
     // "linear-gradient(135deg, #1a3d2b 0%, #2d6a4f 100%)". Si se deja
     // vacío, el header usa "primario" como color sólido de siempre.
-    headerGradiente: process.env.STORE_HEADER_GRADIENT || '',
+    headerGradiente: process.env.STORE_HEADER_GRADIENT || "linear-gradient(95deg, #0B3D4C 0%, #2d6a4f 100%)",
   },
   // Tipografías del tema (opcional). Si se deja vacío, usa la fuente del
   // sistema como hasta ahora. "fuenteGoogleUrl" es el link de Google Fonts
   // que carga las fuentes elegidas (ver temas/CATALOGO-DE-TEMAS.md).
-  fuenteTitulo: process.env.STORE_FONT_TITULO || '',
-  fuenteCuerpo: process.env.STORE_FONT_BODY || '',
-  fuenteGoogleUrl: process.env.STORE_FONT_GOOGLE_URL || '',
-  whatsapp: process.env.STORE_WHATSAPP || '529812791394',
-  email: process.env.STORE_EMAIL || '',
+  fuenteTitulo: process.env.STORE_FONT_TITULO || "'Cormorant Garamond', serif",
+  fuenteCuerpo: process.env.STORE_FONT_BODY || "'Inter', sans-serif",
+  fuenteGoogleUrl: process.env.STORE_FONT_GOOGLE_URL || "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;600&display=swap"
+```
+```,
+  // wa.me exige el número SOLO con dígitos (sin "+", espacios ni guiones).
+  // Si alguien lo escribe como "+52 998 323 8891" en el .env, esto lo
+  // limpia solo — así nunca se rompe el link por un error de formato.
+  whatsapp: (process.env.STORE_WHATSAPP || '529812791394').replace(/[^0-9]/g, ''),
+  email: process.env.STORE_EMAIL || 'mercymarket@gmail.com',
   facebook: process.env.STORE_FACEBOOK || '',
   direccion: process.env.STORE_ADDRESS || 'Calle J 76A entre 1ra y 2da',
-  horario: process.env.STORE_SCHEDULE || '',
-  mostrarTasaCambio: (process.env.STORE_SHOW_EXCHANGE_RATE || 'false').toLowerCase() === 'true',
+  horario: process.env.STORE_SCHEDULE || 'Lun-Sáb: 8:30 AM - 4:00 PM',
+  mostrarTasaCambio: (process.env.STORE_SHOW_EXCHANGE_RATE || 'True').toLowerCase() === 'true',
 
   // Para tiendas que NO manejan USD en absoluto: el precio que cargan en
   // el admin ya ES el valor en CUP directo, sin tasa ni conversión.
