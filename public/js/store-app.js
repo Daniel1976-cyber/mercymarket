@@ -21,7 +21,10 @@ async function initStore() {
 }
 
 function applyBranding(config) {
-  document.title = config.nombre;
+  // En admin.html el título del servidor trae "· Admin" al final —
+  // lo mantenemos aquí en vez de perderlo cuando JS actualiza el título.
+  const esPanelAdmin = Boolean(document.getElementById('adminNav'));
+  document.title = esPanelAdmin ? `${config.nombre} · Admin` : config.nombre;
 
   // Colores vía variables CSS -> permite que styles.css sea igual en todas las tiendas
   document.documentElement.style.setProperty('--color-primario', config.colores.primario);

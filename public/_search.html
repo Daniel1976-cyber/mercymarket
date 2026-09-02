@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{STORE_TITLE}}</title>
+  <meta name="description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="robots" content="{{STORE_ROBOTS}}" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{STORE_TITLE}}" />
+  <meta property="og:description" content="{{STORE_DESCRIPTION}}" />
+  <meta property="og:image" content="{{STORE_OG_IMAGE}}" />
+  <meta property="og:url" content="{{STORE_URL}}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{{STORE_TITLE}}" />
+  <meta name="twitter:description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="twitter:image" content="{{STORE_OG_IMAGE}}" />
+
+  <link rel="icon" href="{{STORE_LOGO}}" />
+  {{STORE_FONT_LINK}}
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    :root {
+      --color-primario: {{STORE_COLOR_PRIMARIO}};
+      --color-acento: {{STORE_COLOR_ACENTO}};
+      --header-gradiente: {{STORE_HEADER_GRADIENTE}};
+      --fuente-titulo: {{STORE_FUENTE_TITULO}};
+      --fuente-cuerpo: {{STORE_FUENTE_CUERPO}};
+    }
+  </style>
+</head>
+<body>
+  <a href="#contenido-principal" class="skip-link">Saltar al contenido</a>
+
+  <header>
+    <img data-store="logo" class="logo-round" src="{{STORE_LOGO}}" alt="{{STORE_TITLE}}" />
+    <div>
+      <div class="store-name" data-store="nombre">{{STORE_TITLE}}</div>
+      <div class="slogan" data-store="slogan"></div>
+    </div>
+    <span id="exchangeRateDisplay" class="exchange-rate" aria-live="polite">Tasa: --</span>
+  </header>
+
+  <form class="search-panel" role="search" onsubmit="event.preventDefault(); buscarYRender();">
+    <div class="search-input-wrap">
+      <label for="searchText" class="visually-hidden">Buscar producto</label>
+      <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
+      <div id="searchSuggestions" class="search-suggestions"></div>
+    </div>
+    <button type="submit" class="search-icon-btn" aria-label="Buscar">🔍</button>
+  </form>
+
+  <div style="padding: 0 1.5rem; margin-top: 1rem;">
+    <a href="index.html" style="display:inline-block; text-decoration:none; background:white; border:1px solid var(--color-primario); color:var(--color-primario); padding:.5rem 1rem; border-radius:.4rem; font-size:.9rem;">
+      ⬅ Volver a la tienda
+    </a>
+  </div>
+
+  <main id="contenido-principal">
+    <!-- Modo "detalle de producto" (llegó vía ?id=) -->
+    <div id="detalleWrap" style="display:none;">
+      <div id="productDetail" class="product-detail"></div>
+      <h3 class="similares-titulo">Productos similares</h3>
+      <div id="similaresGrid" aria-live="polite"></div>
+    </div>
+
+    <!-- Modo "resultados de texto" (llegó vía ?q=/&cat=) -->
+    <div id="resultadosWrap" style="display:none;">
+      <h3 style="padding: 0 1.5rem;" id="resultsTitle"></h3>
+      <div id="productGrid" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <button class="cart-float" onclick="StoreApp.openCart()" aria-label="Ver carrito de compras">
+    🛒 <span id="cartCount" aria-live="polite">0</span>
+  </button>
+
+  <script src="/js/store-app.js"></script>
+  <script>
+    let productosCache = [];
+
+    function buscarYRender() {
+      const q = document.getElementById('searchText').value.trim();
+      window.location.href = StoreApp.buildSearchUrl(q, '');
+    }
+
+    function mostrarResultados(q, cat) {
+      document.getElementById('detalleWrap').style.display = 'none';
+      document.getElementById('resultadosWrap').style.display = 'block';
+
+      document.getElementById('resultsTitle').textContent = q ? `Resultados para "${q}"` : 'Todos los productos';
+      const filtrados = productosCache.filter((p) => {
+        const coincideTexto = !q || p.nombre.toLowerCase().includes(q.toLowerCase());
+        const coincideCategoria = !cat || p.categoria === cat;
+        return coincideTexto && coincideCategoria;
+      });
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = filtrados.length
+        ? filtrados.map((p) => StoreApp.renderProductCard(p)).join('')
+        : '<p style="padding:0 1.5rem;">No se encontraron productos.</p>';
+      StoreApp.attachSpotlight('#productGrid');
+    }
+
+    function mostrarDetalle(id) {
+      const producto = productosCache.find((p) => p.id === id);
+      document.getElementById('resultadosWrap').style.display = 'none';
+      document.getElementById('detalleWrap').style.display = 'block';
+
+      if (!producto) {
+        document.getElementById('productDetail').innerHTML = '<p>Producto no encontrado.</p>';
+        document.getElementById('similaresGrid').innerHTML = '';
+        return;
+      }
+
+      const nombreSeguro = StoreApp.escapeHtml(producto.nombre);
+      document.getElementById('productDetail').innerHTML = `
+        <div class="img-wrap">
+          <img src="${producto.img}" alt="${nombreSeguro}" />
+        </div>
+        <div>
+          <h2>${nombreSeguro}</h2>
+          <div class="price">${StoreApp.formatPrecio(producto.precio_usd, producto.precio_cup)}</div>
+          <p class="descripcion">${StoreApp.escapeHtml(producto.descripcion)}</p>
+          <button onclick='StoreApp.addToCart(${StoreApp.jsonParaAtributo(producto)})' aria-label="Agregar ${nombreSeguro} al carrito">Agregar al carrito</button>
+        </div>
+      `;
+      StoreApp.inyectarSchemaProducto(producto);
+
+      const similares = productosCache
+        .filter((p) => p.categoria === producto.categoria && p.id !== producto.id)
+        .slice(0, 10);
+
+      const grid = document.getElementById('similaresGrid');
+      grid.innerHTML = similares.length
+        ? similares.map((p) => StoreApp.renderProductCard(p)).join('')
+        : '<p style="padding:0 1.5rem;">No hay productos similares por ahora.</p>';
+
+      StoreApp.attachSpotlight('#productDetail');
+      StoreApp.attachSpotlight('#similaresGrid');
+    }
+
+    (async function start() {
+      document.getElementById('productGrid').innerHTML = StoreApp.renderSkeletons();
+      document.getElementById('similaresGrid').innerHTML = StoreApp.renderSkeletons(4);
+
+      const config = await StoreApp.initStore();
+
+      productosCache = await fetch('/api/products').then((r) => r.json());
+
+      StoreApp.setupAutocomplete(
+        document.getElementById('searchText'),
+        document.getElementById('searchSuggestions'),
+        () => productosCache,
+        (producto) => { window.location.href = `search.html?id=${producto.id}`; }
+      );
+
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const q = params.get('q') || '';
+      const cat = params.get('cat') || '';
+
+      if (id) {
+        mostrarDetalle(parseInt(id, 10));
+      } else {
+        document.getElementById('searchText').value = q;
+        mostrarResultados(q, cat);
+      }
+    })();
+  </script>
+</body>
+</html>

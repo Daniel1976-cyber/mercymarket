@@ -2,7 +2,7 @@
 
 Un solo código fuente para todas tus tiendas. Lo único que cambia entre una
 tienda y otra es el archivo `.env.local`, el logo, y el proyecto de Supabase.
-**Nunca edites `public/index.html`, `search.html`, `admin.html` ni `api/index.js`
+**Nunca edites `public/_index.html`, `_search.html`, `_admin.html` ni `api/index.js`
 para adaptarlos a una tienda concreta** — si te hace falta un campo nuevo,
 se agrega al `store.config.js` una sola vez y sirve para todas.
 
@@ -64,12 +64,24 @@ tienda-template/
 ├── api/index.js            # backend Express genérico (productos, carrito, admin, tasa)
 ├── api/services/exchangeRateService.js
 ├── public/
-│   ├── index.html           # catálogo + buscador + tasa (genérico)
-│   ├── search.html          # resultados de búsqueda (genérico)
-│   ├── admin.html           # panel admin (genérico)
+│   ├── _index.html          # catálogo + buscador + tasa (genérico) — se sirve en "/"
+│   ├── _search.html         # resultados de búsqueda (genérico) — se sirve en "/search.html"
+│   ├── _admin.html          # panel admin (genérico) — se sirve en "/admin.html"
 │   ├── css/styles.css       # usa variables --color-primario/--color-acento
 │   └── js/store-app.js      # branding, carrito, buscador (compartido)
 ├── sql/schema.sql           # tablas a crear en cada Supabase nuevo
 ├── .env.example             # plantilla de datos por tienda
 └── vercel.json
 ```
+
+**¿Por qué los archivos HTML tienen `_` adelante?** No es un capricho — es
+necesario para que funcionen los metadatos (título, colores, SEO) que el
+servidor rellena automáticamente. En Vercel, un archivo físico llamado
+`index.html` dentro de `public/` se sirve directo como estático, **antes**
+de que se consulten las reglas de `vercel.json` — así que el servidor
+nunca llegaría a rellenar esos datos. Renombrarlos con `_` hace que no
+exista ningún archivo que le "gane" a la regla de ruteo, y el servidor sí
+llega a procesarlos. Sigue editándose el archivo igual que siempre —
+`_index.html` para la página principal, etc. — solo cambia el nombre, no
+el contenido ni cómo se edita.
+

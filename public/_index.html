@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{STORE_TITLE}}</title>
+  <meta name="description" content="{{STORE_DESCRIPTION}}" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{STORE_TITLE}}" />
+  <meta property="og:description" content="{{STORE_DESCRIPTION}}" />
+  <meta property="og:image" content="{{STORE_OG_IMAGE}}" />
+  <meta property="og:url" content="{{STORE_URL}}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{{STORE_TITLE}}" />
+  <meta name="twitter:description" content="{{STORE_DESCRIPTION}}" />
+  <meta name="twitter:image" content="{{STORE_OG_IMAGE}}" />
+
+  <link rel="icon" href="{{STORE_LOGO}}" />
+  {{STORE_FONT_LINK}}
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    :root {
+      --color-primario: {{STORE_COLOR_PRIMARIO}};
+      --color-acento: {{STORE_COLOR_ACENTO}};
+      --header-gradiente: {{STORE_HEADER_GRADIENTE}};
+      --fuente-titulo: {{STORE_FUENTE_TITULO}};
+      --fuente-cuerpo: {{STORE_FUENTE_CUERPO}};
+    }
+  </style>
+</head>
+<body>
+  <a href="#contenido-principal" class="skip-link">Saltar al contenido</a>
+
+  <header>
+    <img data-store="logo" class="logo-round" src="{{STORE_LOGO}}" alt="{{STORE_TITLE}}" />
+    <div>
+      <div class="store-name" data-store="nombre">{{STORE_TITLE}}</div>
+      <div class="slogan" data-store="slogan"></div>
+    </div>
+    <span id="exchangeRateDisplay" class="exchange-rate" aria-live="polite">Tasa: --</span>
+  </header>
+
+  <form class="search-panel" role="search" onsubmit="event.preventDefault(); StoreApp.submitSearch();">
+    <div class="search-input-wrap">
+      <label for="searchText" class="visually-hidden">Buscar producto</label>
+      <input id="searchText" type="text" placeholder="Buscar producto..." autocomplete="off" />
+      <div id="searchSuggestions" class="search-suggestions" role="listbox"></div>
+    </div>
+    <button type="submit" class="search-icon-btn" aria-label="Buscar">🔍</button>
+  </form>
+
+  <nav id="categoryButtons" aria-label="Categorías de productos"></nav>
+
+  <main id="contenido-principal">
+    <div id="productGrid" aria-live="polite"></div>
+  </main>
+
+  <button class="cart-float" onclick="StoreApp.openCart()" aria-label="Ver carrito de compras">
+    🛒 <span id="cartCount" aria-live="polite">0</span>
+  </button>
+
+  <footer>
+    <h4 data-store="nombre"></h4>
+    <p data-store="slogan"></p>
+    <p>
+      <a data-store="whatsapp-link" href="#" target="_blank">WhatsApp</a> ·
+      <a data-store="email" href="#"></a> ·
+      <a data-store="facebook" href="#" target="_blank">Facebook</a>
+    </p>
+    <p data-store="direccion"></p>
+    <p data-store="horario"></p>
+    <p>© <span data-store="anio"></span> <span data-store="nombre"></span> — Todos los derechos reservados.</p>
+  </footer>
+
+  <script src="/js/store-app.js"></script>
+  <script>
+    let productosCache = [];
+    let categoriaActiva = '';
+
+    function renderProductos(lista) {
+      const grid = document.getElementById('productGrid');
+      if (!lista.length) { grid.innerHTML = '<p>No hay productos en esta categoría.</p>'; return; }
+      grid.innerHTML = lista.map((p) => StoreApp.renderProductCard(p)).join('');
+    }
+
+    function aplicarFiltro() {
+      const filtrados = categoriaActiva
+        ? productosCache.filter((p) => p.categoria === categoriaActiva)
+        : productosCache;
+      renderProductos(filtrados);
+    }
+
+    (async function start() {
+      document.getElementById('productGrid').innerHTML = StoreApp.renderSkeletons();
+
+      const config = await StoreApp.initStore();
+
+      document.getElementById('categoryButtons').addEventListener('click', (e) => {
+        if (!e.target.matches('.cat-btn')) return;
+        const yaActiva = e.target.classList.contains('active');
+        document.querySelectorAll('.cat-btn').forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        if (!yaActiva) {
+          e.target.classList.add('active');
+          e.target.setAttribute('aria-pressed', 'true');
+        }
+        categoriaActiva = yaActiva ? '' : e.target.dataset.cat;
+        aplicarFiltro();
+      });
+
+      productosCache = await fetch('/api/products').then((r) => r.json());
+      aplicarFiltro();
+      StoreApp.attachSpotlight('#productGrid');
+
+      StoreApp.setupAutocomplete(
+        document.getElementById('searchText'),
+        document.getElementById('searchSuggestions'),
+        () => productosCache
+      );
+    })();
+  </script>
+</body>
+</html>

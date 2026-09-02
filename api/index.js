@@ -373,7 +373,12 @@ const publicDir = path.join(projectRoot, 'public');
 // para buscadores y vistas previas de WhatsApp/Facebook (que no ejecutan
 // JavaScript, así que lo que hace store-app.js en el navegador no les sirve).
 function renderPaginaConMeta(nombreArchivo, req) {
-  const ruta = path.join(publicDir, nombreArchivo);
+  // Los archivos reales están renombrados con "_" adelante (_index.html,
+  // _search.html, _admin.html) — a propósito, para que Vercel NO encuentre
+  // un archivo físico en esa ruta y así sí le toque pasar por esta función
+  // en vez de servirlo directo como estático (ver notas en vercel.json).
+  const archivoFisico = { 'index.html': '_index.html', 'search.html': '_search.html', 'admin.html': '_admin.html' }[nombreArchivo] || nombreArchivo;
+  const ruta = path.join(publicDir, archivoFisico);
   const html = fs.readFileSync(ruta, 'utf8');
 
   const urlActual = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
@@ -392,17 +397,36 @@ function renderPaginaConMeta(nombreArchivo, req) {
     ? (esFichaDeProducto ? 'index, follow' : 'noindex, follow')
     : 'index, follow';
 
+  // Colores, degradado y tipografía inyectados directo en el HTML (no
+  // esperan a que JS los aplique) — evita el "flash" de color base y logo
+  // vacío que se ve un instante antes de que cargue el JavaScript.
+  const colorPrimario = storeConfig.colores.primario;
+  const colorAcento = storeConfig.colores.acento;
+  const headerGradiente = storeConfig.colores.headerGradiente || colorPrimario;
+  const fuenteTitulo = storeConfig.fuenteTitulo || 'inherit';
+  const fuenteCuerpo = storeConfig.fuenteCuerpo || 'system-ui, sans-serif';
+  const fontLinkTag = storeConfig.fuenteGoogleUrl
+    ? `<link rel="stylesheet" href="${storeConfig.fuenteGoogleUrl}" />`
+    : '';
+
   return html
     .split('{{STORE_TITLE}}').join(titulo)
     .split('{{STORE_DESCRIPTION}}').join(descripcion)
     .split('{{STORE_OG_IMAGE}}').join(logoAbsoluto)
     .split('{{STORE_URL}}').join(urlActual)
     .split('{{STORE_LOGO}}').join(storeConfig.logo)
-    .split('{{STORE_ROBOTS}}').join(robots);
+    .split('{{STORE_ROBOTS}}').join(robots)
+    .split('{{STORE_COLOR_PRIMARIO}}').join(colorPrimario)
+    .split('{{STORE_COLOR_ACENTO}}').join(colorAcento)
+    .split('{{STORE_HEADER_GRADIENTE}}').join(headerGradiente)
+    .split('{{STORE_FUENTE_TITULO}}').join(fuenteTitulo)
+    .split('{{STORE_FUENTE_CUERPO}}').join(fuenteCuerpo)
+    .split('{{STORE_FONT_LINK}}').join(fontLinkTag);
 }
 
 app.get('/', (req, res) => res.send(renderPaginaConMeta('index.html', req)));
 app.get('/search.html', (req, res) => res.send(renderPaginaConMeta('search.html', req)));
+app.get('/admin.html', (req, res) => res.send(renderPaginaConMeta('admin.html', req)));
 
 // Evita el 404 de favicon.ico que piden algunos navegadores por su cuenta,
 // aunque ya exista el <link rel="icon"> apuntando al logo.
