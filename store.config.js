@@ -32,7 +32,7 @@ export const storeConfig = {
   nombre: process.env.STORE_NAME || 'Mercy Market',
   slug: process.env.STORE_SLUG || 'Mercy-Market',
   slogan: process.env.STORE_SLOGAN || 'Lo que necesitas, más cerca de ti.',
-  logo: process.env.STORE_LOGO_PATH || '/logo.webp',
+  logo: process.env.STORE_LOGO_PATH || 'logo.webp',
   colores: {
     primario: process.env.STORE_COLOR_PRIMARY || '#0B3D4C',
     acento: process.env.STORE_COLOR_ACCENT || '#aa791f',
@@ -44,8 +44,8 @@ export const storeConfig = {
   // Tipografías del tema (opcional). Si se deja vacío, usa la fuente del
   // sistema como hasta ahora. "fuenteGoogleUrl" es el link de Google Fonts
   // que carga las fuentes elegidas (ver temas/CATALOGO-DE-TEMAS.md).
-  fuenteTitulo: process.env.STORE_FONT_TITULO || ''Cormorant Garamond', serif',
-  fuenteCuerpo: process.env.STORE_FONT_BODY || ''Inter', sans-serif',
+  fuenteTitulo: process.env.STORE_FONT_TITULO || "'Cormorant Garamond', serif",
+  fuenteCuerpo: process.env.STORE_FONT_BODY || "'Inter', sans-serif",
   fuenteGoogleUrl: process.env.STORE_FONT_GOOGLE_URL || 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;600&display=swap',
   // wa.me exige el número SOLO con dígitos (sin "+", espacios ni guiones).
   // Si alguien lo escribe como "+52 998 323 8891" en el .env, esto lo
