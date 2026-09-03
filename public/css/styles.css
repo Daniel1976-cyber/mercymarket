@@ -58,7 +58,7 @@ header {
   gap: .75rem;
 }
 header img { height: 40px; }
-header img.logo-round { height: 120x; width: 120px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.5); }
+header img.logo-round { height: 110px; width: 110px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.5); }
 header .store-name { font-weight: 700; font-size: 1.1rem; font-family: var(--fuente-titulo); }
 header .slogan { font-size: .8rem; opacity: .85; }
 
