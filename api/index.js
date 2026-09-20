@@ -226,6 +226,16 @@ app.post('/api/admin/products', verifyAdmin, async (req, res) => {
   res.json(data);
 });
 
+// Extrae la ruta dentro del bucket a partir de la URL pública completa,
+// para poder borrar el archivo viejo del Storage cuando se reemplaza.
+function extraerRutaStorage(urlCompleta, bucket) {
+  if (!urlCompleta) return null;
+  const marcador = `/public/${bucket}/`;
+  const idx = urlCompleta.indexOf(marcador);
+  if (idx === -1) return null;
+  return urlCompleta.slice(idx + marcador.length);
+}
+
 app.put('/api/admin/products/:id', verifyAdmin, async (req, res) => {
   if (!supabaseService) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado en esta tienda' });
@@ -236,17 +246,22 @@ app.put('/api/admin/products/:id', verifyAdmin, async (req, res) => {
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) {
       const valor = req.body[campo];
-      // costo/cantidad son opcionales: "" (campo vacío en el form) debe
-      // guardarse como null, no como texto vacío (rompería la columna numérica).
       cambios[campo] = (campo === 'costo' || campo === 'cantidad') && valor === '' ? null : valor;
     }
   }
-  // "imagen" o "img": cualquiera de los dos nombres actualiza la columna img
   if (req.body.imagen !== undefined) cambios.img = req.body.imagen;
   else if (req.body.img !== undefined) cambios.img = req.body.img;
 
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+
+  // NUEVO: si se va a reemplazar la imagen, guardamos cuál era la vieja
+  // ANTES de sobrescribirla, para poder borrarla del Storage después.
+  let imagenVieja = null;
+  if (cambios.img !== undefined) {
+    const { data: actual } = await supabaseService.from('productos').select('img').eq('id', id).single();
+    imagenVieja = actual?.img || null;
   }
 
   const { data, error } = await supabaseService.from('productos')
@@ -255,18 +270,19 @@ app.put('/api/admin/products/:id', verifyAdmin, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   if (!data || !data.length) return res.status(404).json({ error: 'Producto no encontrado' });
 
+  // NUEVO: borrar la imagen vieja del Storage, solo si de verdad cambió.
+  // Es "best-effort": si falla el borrado, no tumbamos la respuesta —
+  // el producto ya se guardó bien, esto es solo limpieza.
+  if (imagenVieja && imagenVieja !== cambios.img) {
+    const ruta = extraerRutaStorage(imagenVieja, storeConfig.supabase.bucket);
+    if (ruta) {
+      supabaseService.storage.from(storeConfig.supabase.bucket).remove([ruta])
+        .catch((e) => console.error('No se pudo borrar la imagen vieja:', e.message));
+    }
+  }
+
   await cargarProductos();
   res.json(data);
-});
-
-app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
-  if (!supabaseService) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado en esta tienda' });
-  }
-  const { error } = await supabaseService.from('productos').delete().eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
-  productos = productos.filter((p) => p.id !== parseInt(req.params.id, 10));
-  res.json({ success: true });
 });
 
 // Subida de imagen (requiere service role key)
@@ -285,7 +301,8 @@ app.post('/api/admin/upload', verifyAdmin, async (req, res) => {
 
     const { error } = await supabaseService.storage
       .from(storeConfig.supabase.bucket)
-      .upload(finalName, buffer, { contentType: mimeType || 'image/jpeg' });
+      .upload(finalName, buffer, { contentType: mimeType || 'image/jpeg',
+        cacheControl: '31536000', });
     if (error) return res.status(500).json({ error: error.message });
 
     const { data: urlData } = supabase.storage.from(storeConfig.supabase.bucket).getPublicUrl(finalName);
@@ -364,7 +381,42 @@ app.put('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
   if (idx !== -1) categorias[idx] = data[0];
   res.json(data[0]);
 });
+// Registrar un pedido automáticamente cuando el cliente da "Enviar por WhatsApp".
+// Pública (la llama el propio checkout del cliente) — pero solo inserta, nunca lee ni modifica.
+app.post('/api/pedidos', async (req, res) => {
+  if (!supabaseService) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado' });
+  const { items, totalUsd, totalCup } = req.body;
+  if (!Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: 'El pedido no tiene productos' });
+  }
+  const { error } = await supabaseService.from('pedidos').insert([{
+    items, total_usd: totalUsd ?? null, total_cup: totalCup ?? null, estado: 'pendiente',
+  }]);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
 
+// Listar pedidos (admin)
+app.get('/api/admin/pedidos', verifyAdmin, async (req, res) => {
+  if (!supabaseService) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado' });
+  const { data, error } = await supabaseService.from('pedidos').select('*').order('fecha', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// Marcar un pedido como concretado / no concretado
+app.put('/api/admin/pedidos/:id', verifyAdmin, async (req, res) => {
+  if (!supabaseService) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE no configurado' });
+  const { estado } = req.body;
+  if (!['pendiente', 'concretado', 'no_concretado'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado inválido' });
+  }
+  const { error } = await supabaseService.from('pedidos')
+    .update({ estado, actualizado_en: new Date().toISOString() })
+    .eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
 // ─── Archivos estáticos ────────────────────────────────────────────────────
 const publicDir = path.join(projectRoot, 'public');
 

@@ -253,9 +253,22 @@ function checkoutPorWhatsApp() {
   const total = cart.reduce((acc, i) => acc + (i.precio_usd || 0) * i.cantidad, 0);
   const totalCup = cart.reduce((acc, i) => acc + (i.precio_cup || 0) * i.cantidad, 0);
   const mensaje = `Hola, quiero pedir:%0A${detalle}%0A%0ATotal: ${formatTotal(total, totalCup)}`;
+
+  // Registra el pedido en segundo plano, SIN esperar la respuesta — así no
+  // demora la apertura de WhatsApp. Si falla (sin internet, etc.) no
+  // bloquea la compra, solo no queda registrada esa vez.
+  fetch('/api/pedidos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items: cart.map((i) => ({ nombre: i.nombre, precio_usd: i.precio_usd, precio_cup: i.precio_cup, cantidad: i.cantidad })),
+      totalUsd: total,
+      totalCup: totalCup,
+    }),
+  }).catch(() => {});
+
   window.open(`https://wa.me/${config.whatsapp}?text=${mensaje}`, '_blank');
 }
-
 // ─── Buscador (usado en index.html y search.html) ─────────────────────────
 function buildSearchUrl(query, category) {
   const params = new URLSearchParams();
